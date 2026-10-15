@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Merge Zoo</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script async src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<style>
+:root{--sky:#c9ecf5;--grass:#7cc36a;--grass2:#4f9a4a;--tile:#efe0b8;--tile2:#e2cf9f;--wood:#8a6238;--ink:#3b2a1a;--sun:#ffc83d;--sun2:#f2a516;--card:#fffaf0}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{height:100%;margin:0;overscroll-behavior:none}
+body{font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,sans-serif;color:var(--ink);background:linear-gradient(var(--sky) 0,var(--sky) 22%,var(--grass) 22%,var(--grass2) 100%);padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);display:flex;flex-direction:column;align-items:center;overflow:hidden}
+#app{width:100%;max-width:480px;height:100%;display:flex;flex-direction:column;padding:10px 12px 12px;gap:10px}
+.top{display:flex;gap:8px}
+.stat{flex:1;background:var(--card);border-radius:18px;padding:8px 12px;border:3px solid var(--wood);box-shadow:0 3px 0 var(--wood)}
+.stat b{display:block;font-size:24px;font-weight:900;line-height:1.1}
+.stat span{font-size:12px;font-weight:700;opacity:.7}
+#boost{display:none;background:var(--sun);border-radius:12px;padding:2px 8px;font-size:12px;font-weight:900;margin-left:6px}
+.board{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+#grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;max-height:100%;background:var(--wood);padding:8px;border-radius:20px;aspect-ratio:5/6}
+.c{position:relative;background:var(--tile);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:min(9.5vw,44px);box-shadow:inset 0 -4px 0 var(--tile2);border:0;padding:0;font-family:inherit;color:inherit}
+.c i{position:absolute;right:4px;bottom:2px;font-style:normal;font-size:11px;font-weight:900;background:var(--card);border-radius:8px;padding:0 5px}
+.c.sel{outline:4px solid var(--sun2);outline-offset:-2px;transform:scale(.94)}
+.c.can{outline:3px dashed var(--grass2);outline-offset:-3px}
+.c.pop span{animation:pop .3s}
+@keyframes pop{0%{transform:scale(.4)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+.bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button.b{font-family:inherit;font-weight:900;font-size:15px;color:var(--ink);background:var(--sun);border:3px solid var(--wood);border-radius:16px;padding:10px 6px;box-shadow:0 4px 0 var(--wood);line-height:1.15}
+button.b:active{transform:translateY(3px);box-shadow:0 1px 0 var(--wood)}
+button.b.off{opacity:.5}
+button.buy{grid-column:1/-1;font-size:20px;padding:14px}
+button.alt{background:var(--card)}
+#toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:14px;font-weight:800;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%;text-align:center}
+#toast.on{opacity:1}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:24px}
+#modal.on{display:flex}
+.box{background:var(--card);border:4px solid var(--wood);border-radius:22px;padding:20px;width:100%;max-width:340px;text-align:center}
+.box h2{margin:0 0 6px;font-size:22px}
+.box p{margin:0 0 14px;font-weight:700;font-size:15px;white-space:pre-line;text-align:left}
+.mini{display:flex;flex-direction:column;gap:6px}
+.mini button{width:46px;flex:1;border:3px solid var(--wood);border-radius:14px;background:var(--card);font-weight:900;font-size:18px;box-shadow:0 3px 0 var(--wood);color:var(--ink);font-family:inherit;padding:0}
+.goal{background:var(--card);border:3px solid var(--wood);border-radius:14px;padding:6px 10px;font-size:13px;font-weight:800;text-align:center;box-shadow:0 3px 0 var(--wood);white-space:pre-line;line-height:1.5}
+.box .b{width:100%;margin-top:8px}
+@media (prefers-reduced-motion:reduce){.c.pop span{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <div class="stat"><b id="coins">0</b><span id="lblCoins"></span></div>
+    <div class="stat"><b id="rate">0</b><span><span id="lblRate"></span><em id="boost" style="font-style:normal">x2</em></span></div>
+    <div class="mini"><button id="help">?</button><button id="lang">🌐</button></div>
+  </div>
+  <div class="goal" id="goal"></div>
+  <div class="board"><div id="grid"></div></div>
+  <div class="bar">
+    <button class="b buy" id="buy"></button>
+    <button class="b alt" id="ad"></button>
+    <button class="b alt" id="inv"></button>
+    <button class="b alt" id="day"></button>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="modal"><div class="box"><h2 id="mt"></h2><p id="mp"></p><div id="mb"></div></div></div>
+
+<script>
+/* ===== НАСТРОЙКИ (меняются здесь) ===== */
+const BOT_APP_LINK = 'https://t.me/MyMergeZoo_bot/app'; // ссылка на Mini App после /newapp
+const ADSGRAM_BLOCK_ID = '';                             // вставьте Block ID из Adsgram; пока пусто = демо-реклама
+const SAVE_KEY = 'mergezoo_v1';
+
+/* ===== ТЕКСТЫ ===== */
+const TX = {
+ ru:{coins:'монет',rate:'в секунду',buy:'Купить зверя',full:'Поле заполнено. Слейте зверей!',poor:'Не хватает монет',
+  ad:'Реклама: ускорение x2',inv:'Позвать друга',day:'Награда дня',boostOn:'Ускорение x2 включено!',adFail:'Реклама недоступна, попробуйте позже',
+  dayDone:'Награда уже получена. Приходите завтра!',dayGot:'Награда дня',dayStreak:'Серия дней',claim:'Забрать',claimX2:'Забрать x2 (реклама)',
+  off:'С возвращением!',offTxt:'Пока вас не было, зоопарк заработал',refGot:'Бонус за приглашение: +500 монет',share:'Заходи в Merge Zoo: сливай зверей и строй зоопарк!',ok:'Отлично'},
+ en:{coins:'coins',rate:'per second',buy:'Buy animal',full:'Board is full. Merge some animals!',poor:'Not enough coins',
+  ad:'Ad: x2 boost',inv:'Invite friend',day:'Daily reward',boostOn:'x2 boost is on!',adFail:'Ad unavailable, try later',
+  dayDone:'Already claimed. Come back tomorrow!',dayGot:'Daily reward',dayStreak:'Day streak',claim:'Claim',claimX2:'Claim x2 (ad)',
+  off:'Welcome back!',offTxt:'While you were away, your zoo earned',refGot:'Invite bonus: +500 coins',share:'Join Merge Zoo: merge animals and build your zoo!',ok:'Great'}
+};
+Object.assign(TX.ru,{goal:'Цель: открой всех зверей',helpT:'Как играть',helpP:'1. Купи зверя.\n2. Нажми на него, затем на такого же: они сольются в нового, который приносит больше монет.\n3. Монеты капают сами, даже когда тебя нет.\nЦель: открыть всех 12 зверей, вплоть до дракона 🐉.',newA:'Новый зверь',langT:'Язык',win:'Ты открыл всех зверей!'});
+Object.assign(TX.en,{goal:'Goal: discover all animals',helpT:'How to play',helpP:'1. Buy an animal.\n2. Tap it, then tap a matching one: they merge into a new animal that earns more coins.\n3. Coins flow on their own, even when you are away.\nGoal: discover all 12 animals, up to the dragon 🐉.',newA:'New animal',langT:'Language',win:'You discovered every animal!'});
+TX.es={coins:'monedas',rate:'por segundo',buy:'Comprar animal',full:'Tablero lleno. ¡Fusiona animales!',poor:'No hay monedas suficientes',ad:'Anuncio: aceleración x2',inv:'Invitar amigo',day:'Premio diario',boostOn:'¡Aceleración x2 activada!',adFail:'Anuncio no disponible, inténtalo luego',dayDone:'Ya lo recogiste. ¡Vuelve mañana!',dayGot:'Premio diario',dayStreak:'Racha de días',claim:'Recoger',claimX2:'Recoger x2 (anuncio)',off:'¡Bienvenido de nuevo!',offTxt:'Mientras no estabas, tu zoo ganó',refGot:'Bono por invitación: +500 monedas',share:'¡Únete a Merge Zoo: fusiona animales y crea tu zoo!',ok:'Genial',goal:'Meta: descubre todos los animales',helpT:'Cómo jugar',helpP:'1. Compra un animal.\n2. Tócalo y luego toca uno igual: se fusionan en un animal nuevo que da más monedas.\n3. Las monedas llegan solas, incluso cuando no estás.\nMeta: descubrir los 12 animales, hasta el dragón 🐉.',newA:'Nuevo animal',langT:'Idioma',win:'¡Descubriste todos los animales!'};
+TX.tr={coins:'coin',rate:'saniyede',buy:'Hayvan satın al',full:'Alan dolu. Hayvanları birleştir!',poor:'Yeterli coin yok',ad:'Reklam: x2 hız',inv:'Arkadaş davet et',day:'Günlük ödül',boostOn:'x2 hız açıldı!',adFail:'Reklam yok, sonra dene',dayDone:'Ödül alındı. Yarın gel!',dayGot:'Günlük ödül',dayStreak:'Gün serisi',claim:'Al',claimX2:'x2 al (reklam)',off:'Tekrar hoş geldin!',offTxt:'Sen yokken hayvanat bahçen kazandı:',refGot:'Davet bonusu: +500 coin',share:"Merge Zoo'ya katıl: hayvanları birleştir, hayvanat bahçeni kur!",ok:'Harika',goal:'Hedef: tüm hayvanları keşfet',helpT:'Nasıl oynanır',helpP:'1. Bir hayvan satın al.\n2. Ona, sonra aynısına dokun: birleşip daha çok coin kazandıran yeni hayvan olur.\n3. Coinler sen yokken bile kendiliğinden gelir.\nHedef: ejderhaya kadar 12 hayvanın hepsini keşfet 🐉.',newA:'Yeni hayvan',langT:'Dil',win:'Tüm hayvanları keşfettin!'};
+Object.assign(TX.ru,{zooP:'Начни новый зоопарк: прогресс сбросится, но весь доход навсегда вырастет на 50%.',zooBtn:'Новый зоопарк',later:'Позже',zooDone:'Новый зоопарк! Доход +50% навсегда',goalDone:'🏆 Все звери открыты! Нажми: новый зоопарк',promoT:'🐼 Merge Zoo 🐉',promoP:'Сливай зверей, строй свой зоопарк и открой дракона! Зови друзей: вместе веселее.',wait:'Подождите'});
+Object.assign(TX.en,{zooP:'Start a new zoo: progress resets, but your income grows by 50% forever.',zooBtn:'New zoo',later:'Later',zooDone:'New zoo! Income +50% forever',goalDone:'🏆 All animals found! Tap: new zoo',promoT:'🐼 Merge Zoo 🐉',promoP:'Merge animals, build your zoo and find the dragon! Invite friends: it is more fun together.',wait:'Please wait'});
+Object.assign(TX.es,{zooP:'Empieza un zoo nuevo: el progreso se reinicia, pero tus ingresos crecen un 50% para siempre.',zooBtn:'Zoo nuevo',later:'Luego',zooDone:'¡Zoo nuevo! Ingresos +50% para siempre',goalDone:'🏆 ¡Todos los animales! Toca: zoo nuevo',promoT:'🐼 Merge Zoo 🐉',promoP:'¡Fusiona animales, crea tu zoo y encuentra al dragón! Invita amigos: es más divertido juntos.',wait:'Espera'});
+Object.assign(TX.tr,{zooP:'Yeni hayvanat bahçesi başlat: ilerleme sıfırlanır ama gelirin sonsuza kadar %50 artar.',zooBtn:'Yeni bahçe',later:'Sonra',zooDone:'Yeni bahçe! Gelir sonsuza kadar +%50',goalDone:'🏆 Tüm hayvanlar bulundu! Dokun: yeni bahçe',promoT:'🐼 Merge Zoo 🐉',promoP:'Hayvanları birleştir, bahçeni kur, ejderhayı bul! Arkadaşlarını davet et: birlikte daha eğlenceli.',wait:'Bekle'});
+Object.assign(TX.ru,{offerT:'⚡ Ускорение!',offerP:'Посмотри короткий ролик: доход x2 на 2 минуты.',offerBtn:'Смотреть'});
+Object.assign(TX.en,{offerT:'⚡ Speed boost!',offerP:'Watch a short video: income x2 for 2 minutes.',offerBtn:'Watch'});
+Object.assign(TX.es,{offerT:'⚡ ¡Aceleración!',offerP:'Mira un video corto: ingresos x2 durante 2 minutos.',offerBtn:'Ver'});
+Object.assign(TX.tr,{offerT:'⚡ Hızlandırma!',offerP:'Kısa bir video izle: gelir 2 dakika x2.',offerBtn:'İzle'});
+TX.zh={coins:'金币',rate:'每秒',buy:'购买动物',full:'场地已满，快合并动物！',poor:'金币不足',ad:'广告：加速 x2',inv:'邀请好友',day:'每日奖励',boostOn:'x2 加速已开启！',adFail:'广告暂不可用，请稍后再试',dayDone:'今天已领取，明天再来！',dayGot:'每日奖励',dayStreak:'连续天数',claim:'领取',claimX2:'领取 x2（广告）',off:'欢迎回来！',offTxt:'你离开时，动物园赚了',refGot:'邀请奖励：+500 金币',share:'来玩 Merge Zoo：合并动物，建造你的动物园！',ok:'太棒了',goal:'目标：发现所有动物',helpT:'玩法',helpP:'1. 购买一只动物。\n2. 点它，再点相同的动物：它们会合并成更赚钱的新动物。\n3. 金币会自动增长，即使你不在线。\n目标：发现全部12种动物，直到巨龙 🐉。',newA:'新动物',langT:'语言',win:'你发现了所有动物！',zooP:'开启新动物园：进度会重置，但你的收入永久提高50%。',zooBtn:'新动物园',later:'稍后',zooDone:'新动物园！收入永久 +50%',goalDone:'🏆 已发现所有动物！点击：新动物园',promoT:'🐼 Merge Zoo 🐉',promoP:'合并动物，建造动物园，找到巨龙！邀请好友一起玩更有趣。',wait:'请稍等',offerT:'⚡ 加速！',offerP:'观看短视频：收入 x2，持续2分钟。',offerBtn:'观看'};
+TX.hi={coins:'सिक्के',rate:'प्रति सेकंड',buy:'जानवर खरीदें',full:'मैदान भर गया। जानवर मिलाएँ!',poor:'सिक्के कम हैं',ad:'विज्ञापन: x2 स्पीड',inv:'दोस्त को बुलाएँ',day:'रोज़ का इनाम',boostOn:'x2 स्पीड चालू!',adFail:'विज्ञापन उपलब्ध नहीं, बाद में कोशिश करें',dayDone:'इनाम ले लिया। कल आएँ!',dayGot:'रोज़ का इनाम',dayStreak:'लगातार दिन',claim:'लें',claimX2:'x2 लें (विज्ञापन)',off:'वापसी पर स्वागत है!',offTxt:'आपके पीछे चिड़ियाघर ने कमाए',refGot:'न्योते का बोनस: +500 सिक्के',share:'Merge Zoo खेलें: जानवर मिलाएँ और अपना चिड़ियाघर बनाएँ!',ok:'बढ़िया',goal:'लक्ष्य: सभी जानवर खोजें',helpT:'कैसे खेलें',helpP:'1. एक जानवर खरीदें।\n2. उस पर टैप करें, फिर वैसे ही दूसरे पर: वे मिलकर नया जानवर बनते हैं जो ज़्यादा सिक्के कमाता है।\n3. सिक्के अपने आप आते हैं, आपके न होने पर भी।\nलक्ष्य: ड्रैगन तक सभी 12 जानवर खोजें 🐉।',newA:'नया जानवर',langT:'भाषा',win:'आपने सभी जानवर खोज लिए!',zooP:'नया चिड़ियाघर शुरू करें: प्रगति रीसेट होगी, पर आपकी कमाई हमेशा के लिए 50% बढ़ जाएगी।',zooBtn:'नया चिड़ियाघर',later:'बाद में',zooDone:'नया चिड़ियाघर! कमाई हमेशा +50%',goalDone:'🏆 सभी जानवर मिल गए! टैप करें: नया चिड़ियाघर',promoT:'🐼 Merge Zoo 🐉',promoP:'जानवर मिलाएँ, अपना चिड़ियाघर बनाएँ और ड्रैगन खोजें! दोस्तों को बुलाएँ: साथ में मज़ा ज़्यादा है।',wait:'रुकिए',offerT:'⚡ स्पीड बूस्ट!',offerP:'छोटा वीडियो देखें: 2 मिनट के लिए आय x2।',offerBtn:'देखें'};
+const tg = window.Telegram && Telegram.WebApp;
+try{ if(tg){ tg.ready(); tg.expand(); tg.setHeaderColor('#c9ecf5'); tg.setBackgroundColor('#c9ecf5'); } }catch(e){}
+const lang = ((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code)||navigator.language||'en').slice(0,2);
+let T = TX.en; const autoLang = (lang==='uk'||lang==='be')?'ru':(TX[lang]?lang:'en');
+
+/* ===== ИГРОВЫЕ ДАННЫЕ ===== */
+const N=30, MAXL=12;
+const ANIMALS=['🐣','🐥','🐰','🐱','🐶','🦊','🐼','🐯','🦁','🐘','🦄','🐉'];
+const inc = l => 0.5*Math.pow(2.5,l-1);
+const cost = b => Math.floor(10*Math.pow(1.12,b));
+const OFFLINE_CAP = 7200, BOOST_ADD = 120, BOOST_MAX = 600;
+
+let S;
+try{ S = JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){}
+if(!S||!Array.isArray(S.grid)){
+  S={coins:50,grid:Array(N).fill(0),bought:0,last:Date.now(),day:0,streak:0,boostUntil:0,ref:false};
+  S.grid[7]=1; S.grid[12]=1;
+}
+let sel=null, lastPop=-1;
+T = TX[S.lang||autoLang]||TX.en;
+function newZoo(){ modal(T.win,T.zooP,[[T.zooBtn,()=>{ S.pres=(S.pres||0)+1; S.coins=50; S.grid=Array(N).fill(0); S.grid[7]=1; S.grid[12]=1; S.bought=0; S.max=1; sel=null; save(); render(); toast(T.zooDone); }],[T.later,null,true]]); }
+S.max = Math.max(S.max||1, ...S.grid);
+function newAnimal(l){ if(l>S.max){ S.max=l; const r=Math.floor(50*Math.pow(3,l-1)); S.coins+=r; toast(T.newA+' '+ANIMALS[l-1]+' +'+fmt(r)); if(l===MAXL) setTimeout(newZoo,1200); } }
+
+const $=id=>document.getElementById(id);
+const save=()=>{ S.last=Date.now(); try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){} };
+function fmt(n){ if(n<1000) return n<10?n.toFixed(1).replace(/\.0$/,''):Math.floor(n)+''; const u=['K','M','B','T','Qa'];let i=-1;while(n>=1000&&i<u.length-1){n/=1000;i++;} return (n<10?n.toFixed(2):n<100?n.toFixed(1):Math.floor(n))+u[i]; }
+function baseRate(){ return S.grid.reduce((a,l)=>a+(l?inc(l):0),0)*(1+0.5*(S.pres||0)); }
+function boosted(){ return S.boostUntil>Date.now(); }
+function rate(){ return baseRate()*(boosted()?2:1); }
+function haptic(t){ try{ tg&&tg.HapticFeedback&&tg.HapticFeedback.impactOccurred(t||'light'); }catch(e){} }
+let tt; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('on'),2200); }
+function modal(title,text,btns){ $('mt').textContent=title; $('mp').textContent=text; const mb=$('mb'); mb.innerHTML='';
+  btns.forEach(([label,fn,alt])=>{ const b=document.createElement('button'); b.className='b'+(alt?' alt':''); b.textContent=label; b.onclick=()=>{ $('modal').classList.remove('on'); fn&&fn(); }; mb.appendChild(b); });
+  $('modal').classList.add('on'); }
+
+/* ===== ОТРИСОВКА ===== */
+function render(){
+  const g=$('grid'); g.innerHTML='';
+  const selL = sel!==null?S.grid[sel]:0;
+  S.grid.forEach((l,i)=>{
+    const c=document.createElement('button'); c.className='c';
+    if(i===sel) c.classList.add('sel');
+    else if(sel!==null&&l&&l===selL&&l<MAXL) c.classList.add('can');
+    if(i===lastPop) c.classList.add('pop');
+    if(l) c.innerHTML='<span>'+ANIMALS[l-1]+'</span><i>'+l+'</i>';
+    c.onclick=()=>tapCell(i);
+    g.appendChild(c);
+  });
+  lastPop=-1; stats();
+}
+function stats(){
+  $('coins').textContent=fmt(S.coins);
+  $('rate').textContent=fmt(rate());
+  $('boost').style.display=boosted()?'inline-block':'none';
+  $('goal').textContent=(S.pres?'№'+(S.pres+1)+' · ':'')+(S.max>=MAXL?T.goalDone:T.goal+' · '+S.max+'/12')+'\n'+ANIMALS.map((a,k)=>k<S.max?a:'❔').join('');
+  const c=cost(S.bought); $('buy').textContent=T.buy+' · '+fmt(c); $('buy').classList.toggle('off',S.coins<c);
+}
+function tapCell(i){
+  const v=S.grid[i];
+  if(sel===null){ if(v) sel=i; render(); return; }
+  if(sel===i){ sel=null; render(); return; }
+  const a=S.grid[sel];
+  if(!v){ S.grid[i]=a; S.grid[sel]=0; sel=null; haptic('light'); }
+  else if(v===a&&v<MAXL){ S.grid[i]=v+1; S.grid[sel]=0; sel=null; lastPop=i; haptic('medium'); newAnimal(v+1); }
+  else { sel=i; }
+  save(); render();
+}
+
+/* ===== ДЕЙСТВИЯ ===== */
+$('buy').onclick=()=>{
+  const c=cost(S.bought);
+  if(S.coins<c) return toast(T.poor);
+  const e=S.grid.indexOf(0);
+  if(e<0) return toast(T.full);
+  S.coins-=c; S.bought++; S.grid[e]=1; lastPop=e; haptic('light'); save(); render();
+};
+function promo(res){
+  $('mt').textContent=T.promoT; $('mp').textContent=T.promoP; const mb=$('mb'); mb.innerHTML='';
+  const b=document.createElement('button'); b.className='b off'; mb.appendChild(b);
+  let s=5; b.textContent=T.wait+' '+s; $('modal').classList.add('on');
+  const iv=setInterval(()=>{ s--; if(s>0){ b.textContent=T.wait+' '+s; return; } clearInterval(iv); b.className='b'; b.textContent=T.claim; b.onclick=()=>{ $('modal').classList.remove('on'); res(true); }; },1000);
+}
+function showAd(){
+  return new Promise(res=>{
+    try{
+      if(ADSGRAM_BLOCK_ID && window.Adsgram){
+        window.Adsgram.init({blockId:ADSGRAM_BLOCK_ID}).show().then(()=>res(true)).catch(()=>res(false));
+      } else { promo(res); } // демо, пока нет Block ID
+    }catch(e){ res(false); }
+  });
+}
+$('ad').onclick=async()=>{
+  const ok=await showAd();
+  if(!ok) return toast(T.adFail);
+  const base=Math.max(S.boostUntil,Date.now());
+  S.boostUntil=Math.min(base+BOOST_ADD*1000,Date.now()+BOOST_MAX*1000);
+  toast(T.boostOn); save(); stats();
+};
+$('inv').onclick=()=>{
+  const uid=(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.id)||'0';
+  const url=BOT_APP_LINK+'?startapp=ref_'+uid;
+  const link='https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(T.share);
+  if(tg&&tg.openTelegramLink) tg.openTelegramLink(link); else window.open(link,'_blank');
+};
+$('day').onclick=()=>{
+  const today=Math.floor(Date.now()/864e5);
+  if(S.day===today) return toast(T.dayDone);
+  const streak = S.day===today-1 ? Math.min(S.streak+1,7) : 1;
+  const reward = Math.floor((100+baseRate()*300)*streak);
+  const give=m=>{ S.coins+=reward*m; S.day=today; S.streak=streak; save(); render(); toast('+'+fmt(reward*m)); };
+  modal(T.dayGot, T.dayStreak+': '+streak+'/7 · +'+fmt(reward), [
+    [T.claim,()=>give(1)],
+    [T.claimX2,async()=>{ (await showAd())?give(2):(toast(T.adFail),give(1)); },true]
+  ]);
+};
+
+/* ===== РЕФЕРАЛ (бонус приглашённому) ===== */
+try{
+  const sp=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param;
+  if(sp&&sp.indexOf('ref_')===0&&!S.ref){ S.ref=true; S.coins+=500; setTimeout(()=>toast(T.refGot),800); }
+}catch(e){}
+
+/* ===== ОФЛАЙН-ДОХОД ===== */
+(function(){
+  const dt=Math.min((Date.now()-(S.last||Date.now()))/1000,OFFLINE_CAP);
+  const earn=Math.floor(baseRate()*dt*0.5);
+  if(dt>60&&earn>0){
+    modal(T.off,T.offTxt+' '+fmt(earn),[
+      [T.claim,()=>{S.coins+=earn;save();stats();}],
+      [T.claimX2,async()=>{ if(await showAd()){S.coins+=earn*2;} else {S.coins+=earn;toast(T.adFail);} save();stats(); },true]
+    ]);
+  }
+})();
+
+/* ===== ЦИКЛ ===== */
+function applyText(){ $('lblCoins').textContent=T.coins; $('lblRate').textContent=T.rate+' '; $('ad').textContent=T.ad; $('inv').textContent=T.inv; $('day').textContent=T.day; stats(); }
+const NAMES={en:'English',es:'Español',tr:'Türkçe',zh:'中文',hi:'हिन्दी',ru:'Русский'};
+$('lang').onclick=()=>modal(T.langT,'',Object.keys(NAMES).map(k=>[NAMES[k],()=>{S.lang=k;T=TX[k];save();applyText();},k!==(S.lang||autoLang)]));
+$('help').onclick=()=>modal(T.helpT,T.helpP,[[T.ok]]);
+$('goal').onclick=()=>{ if(S.max>=MAXL) newZoo(); };
+applyText();
+if(!S.intro&&!$('modal').classList.contains('on')){ S.intro=true; save(); modal(T.helpT,T.helpP,[[T.ok]]); }
+let prev=Date.now();
+setInterval(()=>{ const n=Date.now(),dt=(n-prev)/1000; prev=n; S.coins+=rate()*dt; stats(); },250);
+setInterval(save,5000);
+let offerGap=300000, nextOffer=Date.now()+offerGap;
+setInterval(()=>{
+  if(Date.now()<nextOffer) return;
+  if($('modal').classList.contains('on')) return;
+  if(boosted()){ nextOffer=Date.now()+60000; return; }
+  nextOffer=Date.now()+offerGap;
+  modal(T.offerT,T.offerP,[[T.offerBtn,()=>{ offerGap=300000; nextOffer=Date.now()+offerGap; $('ad').click(); }],[T.later,()=>{ offerGap=Math.min(offerGap*2,1800000); nextOffer=Date.now()+offerGap; },true]]);
+},5000);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); });
+render();
+</script>
+</body>
+</html>
