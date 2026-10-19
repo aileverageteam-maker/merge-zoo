@@ -1,0 +1,286 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Merge Zoo</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<style>
+:root{--sky:#c9ecf5;--grass:#7cc36a;--grass2:#4f9a4a;--tile:#efe0b8;--tile2:#e2cf9f;--wood:#8a6238;--ink:#3b2a1a;--sun:#ffc83d;--sun2:#f2a516;--card:#fffaf0}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{height:100%;margin:0;overscroll-behavior:none}
+body{font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,sans-serif;color:var(--ink);background:linear-gradient(var(--sky) 0,var(--sky) 22%,var(--grass) 22%,var(--grass2) 100%);padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);display:flex;flex-direction:column;align-items:center;overflow:hidden}
+#app{width:100%;max-width:480px;height:100%;display:flex;flex-direction:column;padding:10px 12px 12px;gap:10px}
+.top{display:flex;gap:8px}
+.stat{flex:1;background:var(--card);border-radius:18px;padding:8px 12px;border:3px solid var(--wood);box-shadow:0 3px 0 var(--wood)}
+.stat b{display:block;font-size:24px;font-weight:900;line-height:1.1}
+.stat span{font-size:12px;font-weight:700;opacity:.7}
+#boost{display:none;background:var(--sun);border-radius:12px;padding:2px 8px;font-size:12px;font-weight:900;margin-left:6px}
+.board{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+#grid{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr);gap:6px;width:100%;height:100%;background:var(--wood);padding:8px;border-radius:20px}
+.c{position:relative;background:var(--tile);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:min(9.5vw,44px);box-shadow:inset 0 -4px 0 var(--tile2);border:0;padding:0;font-family:inherit;color:inherit;touch-action:none}
+.c i{position:absolute;right:4px;bottom:2px;font-style:normal;font-size:11px;font-weight:900;background:var(--card);border-radius:8px;padding:0 5px}
+.c.sel{outline:4px solid var(--sun2);outline-offset:-2px;transform:scale(.94)}
+.c.can{outline:3px dashed var(--grass2);outline-offset:-3px}
+.c.pop span{animation:pop .3s}
+@keyframes pop{0%{transform:scale(.4)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+.bar{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+button.b{font-family:inherit;font-weight:900;font-size:15px;color:var(--ink);background:var(--sun);border:3px solid var(--wood);border-radius:16px;padding:10px 6px;box-shadow:0 4px 0 var(--wood);line-height:1.15}
+button.b:active{transform:translateY(3px);box-shadow:0 1px 0 var(--wood)}
+button.b.off{opacity:.5}
+button.buy{grid-column:1/-1;font-size:18px;padding:12px}
+button.alt{background:var(--card)}
+#toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:14px;font-weight:800;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%;text-align:center;z-index:100}
+#toast.on{opacity:1}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:90}
+#modal.on{display:flex}
+.box{background:var(--card);border:4px solid var(--wood);border-radius:22px;padding:20px;width:100%;max-width:340px;text-align:center}
+.box h2{margin:0 0 6px;font-size:22px}
+.box p{margin:0 0 14px;font-weight:700;font-size:15px;white-space:pre-line;text-align:left}
+.mini{display:grid;grid-template-columns:repeat(2,40px);grid-template-rows:1fr 1fr;gap:6px}
+.mini button{width:40px;height:36px;border:3px solid var(--wood);border-radius:12px;background:var(--card);font-weight:900;font-size:16px;box-shadow:0 3px 0 var(--wood);color:var(--ink);font-family:inherit;padding:0}
+.goal{background:var(--card);border:3px solid var(--wood);border-radius:14px;padding:6px 10px;font-size:13px;font-weight:800;text-align:center;box-shadow:0 3px 0 var(--wood);white-space:pre-line;line-height:1.5}
+.box .b{width:100%;margin-top:8px}
+.c.dragsrc span{opacity:.25}
+.fl{position:fixed;z-index:60;pointer-events:none;font-size:min(12vw,56px);transform:translate(-50%,-60%) scale(1.15);filter:drop-shadow(0 8px 5px rgba(0,0,0,.3))}
+.pt{position:fixed;z-index:50;font-size:18px;pointer-events:none;animation:fly .7s ease-out forwards}
+@keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.4);opacity:0}}
+.ft{position:fixed;z-index:55;font-weight:900;font-size:20px;color:#fff;text-shadow:0 2px 0 #8a6238,0 0 8px #ffc83d;pointer-events:none;animation:up .9s ease-out forwards}
+@keyframes up{from{transform:translate(-50%,0)}to{transform:translate(-50%,-60px);opacity:0}}
+button.buy.pulse{animation:pls 1.2s infinite}
+@keyframes pls{50%{transform:scale(1.03);box-shadow:0 4px 0 var(--wood),0 0 16px 4px rgba(255,200,61,.8)}}
+.shake{animation:shk .35s}
+@keyframes shk{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <div class="stat"><b id="coins">0</b><span id="lblCoins">монет</span></div>
+    <div class="stat"><b id="rate">0</b><span><span id="lblRate">в сек</span><em id="boost">x2</em></span></div>
+    <div class="mini"><button id="help">?</button><button id="lang">🌐</button><button id="snd">🔊</button><button id="shop">🛒</button></div>
+  </div>
+  <div class="goal" id="goal"></div>
+  <div class="board"><div id="grid"></div></div>
+  <div class="bar">
+    <button class="b buy" id="buy">Купить зверя</button>
+    <button class="b alt" id="ad">Реклама x2</button>
+    <button class="b alt" id="inv">Друзья</button>
+    <button class="b alt" id="day">Награда дня</button>
+    <button class="b alt" id="auto">🤖 Auto</button>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="modal"><div class="box"><h2 id="mt"></h2><p id="mp"></p><div id="mb"></div></div></div>
+
+
+<script>
+/* НАСТРОЙКИ */
+const BOT_APP_LINK = 'https://t.me/MyMergeZoo_bot/app';
+const ADSGRAM_BLOCK_ID = '54708';
+const SAVE_KEY = 'mergezoo_v1';
+
+
+const N=30, MAXL=12;
+const ANIMALS=['🐣','🐥','🐰','🐱','🐶','🦊','🐼','🐯','🦁','🐘','🦄','🐉'];
+
+
+const TX = {
+ ru:{coins:'монет',rate:'в секунду',buy:'Купить зверя',full:'Поле заполнено!',poor:'Не хватает монет',
+  ad:'Реклама x2',inv:'Пригласить',day:'Награда дня',boostOn:'Ускорение x2!',adFail:'Реклама недоступна',
+  dayDone:'Уже получено!',dayGot:'Награда дня',dayStreak:'Серия дней',claim:'Забрать',claimX2:'Забрать x2',
+  off:'С возвращением!',offTxt:'За время отсутствия заработано:',refGot:'Бонус за друга: +500 монет',share:'Играй в Merge Zoo со мной!',ok:'Понятно',
+  goal:'Цель: открой всех зверей',helpT:'Как играть',helpP:'1. Покупай зверей.\n2. Соединяй одинаковых.\n3. Зарабатывай монеты!',newA:'Новый зверь',langT:'Язык',win:'Все звери открыты!',
+  zooP:'Новый зоопарк сбросит прогресс, но даст +50% к доходу навсегда.',zooBtn:'Сброс',later:'Позже',zooDone:'Доход +50% навсегда!',goalDone:'🏆 Все открыты!',
+  promoT:'Merge Zoo',promoP:'Сливай зверей и строй зоопарк!',wait:'Подождите',offerT:'⚡ Ускорение!',offerP:'Доход x2 на 2 минуты!',offerBtn:'Смотреть'},
+ en:{coins:'coins',rate:'per sec',buy:'Buy animal',full:'Board full!',poor:'Not enough coins',
+  ad:'Ad x2 boost',inv:'Invite',day:'Daily reward',boostOn:'x2 Boost active!',adFail:'Ad unavailable',
+  dayDone:'Claimed today!',dayGot:'Daily reward',dayStreak:'Streak',claim:'Claim',claimX2:'Claim x2',
+  off:'Welcome back!',offTxt:'Offline earnings:',refGot:'Friend bonus: +500 coins',share:'Join Merge Zoo!',ok:'OK',
+  goal:'Goal: discover all animals',helpT:'How to play',helpP:'1. Buy animals.\n2. Merge same ones.\n3. Earn coins!',newA:'New animal',langT:'Language',win:'All discovered!',
+  zooP:'Reset progress for permanent +50% income boost.',zooBtn:'New Zoo',later:'Later',zooDone:'Income +50%!',goalDone:'🏆 All unlocked!',
+  promoT:'Merge Zoo',promoP:'Merge animals and build your zoo!',wait:'Wait',offerT:'⚡ Speed boost!',offerP:'Income x2 for 2 min!',offerBtn:'Watch'}
+};
+
+
+const tg = window.Telegram && Telegram.WebApp;
+try{ if(tg){ tg.ready(); tg.expand(); tg.setHeaderColor('#c9ecf5'); tg.setBackgroundColor('#c9ecf5'); } }catch(e){}
+
+
+let S;
+try{ S = JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){}
+if(!S||!Array.isArray(S.grid)){
+  S={coins:50,grid:Array(N).fill(0),bought:0,last:Date.now(),day:0,streak:0,boostUntil:0,ref:false,max:1,pres:0};
+  S.grid[7]=1; S.grid[12]=1;
+}
+
+
+let sel=null, lastPop=-1, burstAt=-1, drag=null;
+let T = TX[S.lang || 'ru'] || TX.ru;
+
+
+const $=id=>document.getElementById(id);
+const inc = l => Math.pow(2.5,l-1);
+const baseRate = () => S.grid.reduce((a,l)=>a+(l?inc(l):0),0)*(1+0.5*(S.pres||0));
+const boosted = () => S.boostUntil > Date.now();
+const rate = () => baseRate()*(boosted()?2:1);
+const cost = b => Math.max(5,Math.floor(baseRate()*4));
+
+
+function fmt(n){
+  if(n<1000) return n<10?n.toFixed(1).replace(/\.0$/,''):Math.floor(n)+'';
+  const u=['K','M','B','T']; let i=-1;
+  while(n>=1000&&i<u.length-1){n/=1000;i++;}
+  return (n<10?n.toFixed(2):n<100?n.toFixed(1):Math.floor(n))+u[i];
+}
+
+
+function save(){ S.last=Date.now(); try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){} }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2000); }
+
+
+function modal(title,text,btns){
+  $('mt').textContent=title; $('mp').textContent=text; const mb=$('mb'); mb.innerHTML='';
+  btns.forEach(([label,fn,alt])=>{
+    const b=document.createElement('button'); b.className='b'+(alt?' alt':''); b.textContent=label;
+    b.onclick=()=>{ $('modal').classList.remove('on'); fn&&fn(); }; mb.appendChild(b);
+  });
+  $('modal').classList.add('on');
+}
+
+
+function render(){
+  const g=$('grid'); g.innerHTML='';
+  const selL = sel!==null?S.grid[sel]:0;
+  S.grid.forEach((l,i)=>{
+    const c=document.createElement('button'); c.className='c';
+    if(i===sel) c.classList.add('sel');
+    else if(sel!==null&&l&&l===selL&&l<MAXL) c.classList.add('can');
+    if(i===lastPop) c.classList.add('pop');
+    if(l) c.innerHTML='<span>'+ANIMALS[l-1]+'</span><i>'+l+'</i>';
+    c.dataset.i=i; c.onpointerdown=e=>pDown(e,i);
+    if(l){
+      const h=(30+l*27)%360;
+      c.style.background='hsl('+h+' 75% 88%)';
+      c.style.boxShadow='inset 0 -4px 0 hsl('+h+' 55% 72%)';
+    }
+    g.appendChild(c);
+  });
+  lastPop=-1;
+  stats();
+}
+
+
+function stats(){
+  $('coins').textContent=fmt(S.coins);
+  $('rate').textContent=fmt(rate());
+  $('boost').style.display=boosted()?'inline-block':'none';
+  $('lblCoins').textContent=T.coins;
+  $('lblRate').textContent=T.rate;
+  $('goal').innerHTML=(S.max>=MAXL?T.goalDone:T.goal+' · '+S.max+'/12')+'<br>'+ANIMALS.map((a,k)=>k<S.max?a:'🔒').join('');
+  const c=cost(S.bought); $('buy').textContent=T.buy+' · '+fmt(c);
+  $('ad').textContent=T.ad; $('inv').textContent=T.inv; $('day').textContent=T.day;
+}
+
+
+function newAnimal(l){
+  if(l>S.max){
+    S.max=l; const r=Math.floor(Math.max(50,baseRate()*60)); S.coins+=r;
+    toast(T.newA+' '+ANIMALS[l-1]+' +'+fmt(r));
+  }
+}
+
+
+function doMove(a,b){
+  if(a===b) return;
+  const va=S.grid[a], vb=S.grid[b];
+  if(!vb){ S.grid[b]=va; S.grid[a]=0; }
+  else if(vb===va&&va<MAXL){ S.grid[b]=va+1; S.grid[a]=0; lastPop=b; newAnimal(va+1); }
+  else { S.grid[a]=vb; S.grid[b]=va; }
+  save(); render();
+}
+
+
+function pDown(e,i){ drag={i:i,x:e.clientX,y:e.clientY,on:false,el:null}; }
+window.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  if(!drag.on){
+    if(!S.grid[drag.i]||Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<10) return;
+    drag.on=true; sel=null;
+    const f=document.createElement('div'); f.className='fl'; f.textContent=ANIMALS[S.grid[drag.i]-1]; document.body.appendChild(f); drag.el=f;
+  }
+  drag.el.style.left=e.clientX+'px'; drag.el.style.top=e.clientY+'px';
+});
+window.addEventListener('pointerup',e=>{
+  if(!drag) return;
+  const d=drag; drag=null;
+  if(d.on){
+    d.el.remove();
+    const t=document.elementFromPoint(e.clientX,e.clientY), c=t&&t.closest&&t.closest('.c');
+    if(c&&c.dataset.i!==undefined) doMove(d.i,+c.dataset.i);
+  } else {
+    if(sel===null){ if(S.grid[d.i]) sel=d.i; }
+    else if(sel===d.i){ sel=null; }
+    else { doMove(sel,d.i); sel=null; }
+    render();
+  }
+});
+
+
+$('buy').onclick=()=>{
+  const c=cost(S.bought);
+  if(S.coins<c) return toast(T.poor);
+  const e=S.grid.indexOf(0);
+  if(e<0) return toast(T.full);
+  S.coins-=c; S.bought++; S.grid[e]=1; lastPop=e; save(); render();
+};
+
+
+function showAd(){
+  return new Promise(res=>{
+    try{
+      if(ADSGRAM_BLOCK_ID && window.Adsgram){
+        window.Adsgram.init({blockId:ADSGRAM_BLOCK_ID}).show().then(()=>res(true)).catch(()=>res(false));
+      } else { res(true); }
+    }catch(e){ res(false); }
+  });
+}
+
+
+$('ad').onclick=async()=>{
+  const ok=await showAd();
+  if(!ok) return toast(T.adFail);
+  S.boostUntil=Math.max(S.boostUntil,Date.now())+120000;
+  toast(T.boostOn); save(); stats();
+};
+
+
+$('inv').onclick=()=>{
+  const uid=(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.id)||'0';
+  const url=BOT_APP_LINK+'?startapp=ref_'+uid;
+  const link='https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(T.share);
+  if(tg&&tg.openTelegramLink) tg.openTelegramLink(link); else window.open(link,'_blank');
+};
+
+
+$('day').onclick=()=>{
+  const today=Math.floor(Date.now()/864e5);
+  if(S.day===today) return toast(T.dayDone);
+  const reward=500;
+  S.coins+=reward; S.day=today; save(); render(); toast('+'+reward);
+};
+
+
+$('help').onclick=()=>modal(T.helpT,T.helpP,[[T.ok]]);
+$('lang').onclick=()=>{ S.lang=S.lang==='ru'?'en':'ru'; T=TX[S.lang]; save(); render(); };
+
+
+setInterval(()=>{ S.coins+=rate()*0.25; stats(); },250);
+setInterval(save,5000);
+
+
+render();
+</script>
+</body>
+</html>
